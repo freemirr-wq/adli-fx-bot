@@ -1,34 +1,169 @@
-<div class="card">
-  <div class="grid-2">
-    <div class="stat-box">
-      <div class="stat-label">BALANCE</div>
-      <div id="balanceVal" class="stat-val">$0.00</div>
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloud Bot Controller</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #090d16; color: #f1f5f9; padding: 16px; }
+    .app { max-width: 440px; margin: 0 auto; }
+    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .badge { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .online { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid #10b981; }
+    .offline { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid #ef4444; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-box { background: #0b1120; border: 1px solid #1e293b; border-radius: 10px; padding: 10px; }
+    .stat-label { font-size: 11px; color: #94a3b8; }
+    .stat-val { font-size: 17px; font-weight: 700; margin-top: 4px; }
+    .profit { color: #34d399; }
+    .loss { color: #f87171; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    button { border: none; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 14px; cursor: pointer; }
+    .btn-start-on { background: #10b981; color: #052e16; }
+    .btn-start-off { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+    .btn-hold-on { background: #f59e0b; color: #271700; }
+    .btn-hold-off { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+    .btn-save { width: 100%; background: #3b82f6; color: white; margin-top: 8px; }
+    input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0b1120; color: #fff; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="top">
+      <div>
+        <div style="font-weight:800;font-size:18px;">CLOUD BOT V1</div>
+        <div id="subInfo" style="font-size:12px;color:#94a3b8;">Akaun: - | Simbol: -</div>
+      </div>
+      <span id="connBadge" class="badge offline">OFFLINE</span>
     </div>
-    <div class="stat-box">
-      <div class="stat-label">PROFIT TODAY</div>
-      <div id="profitVal" class="stat-val profit">+$0.00</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-label">FLOATING P&L</div>
-      <div id="floatingVal" class="stat-val">$0.00</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-label">OPEN POSITIONS</div>
-      <div id="posVal" class="stat-val">0</div>
-    </div>
-  </div>
-</div>
 
-<div class="card">
-  <div style="font-weight:700;font-size:14px;">KAWALAN ROBOT</div>
-  <div class="controls">
-    <button id="btnStart" class="btn-start-off" onclick="toggleStart()">START: OFF</button>
-    <button id="btnHold" class="btn-hold-off" onclick="toggleHold()">HOLD: OFF</button>
+    <div class="card">
+      <div class="grid-2">
+        <div class="stat-box">
+          <div class="stat-label">BALANCE</div>
+          <div id="balanceVal" class="stat-val">$0.00</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">PROFIT TODAY</div>
+          <div id="profitVal" class="stat-val profit">+$0.00</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">FLOATING P&L</div>
+          <div id="floatingVal" class="stat-val">$0.00</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">OPEN POSITIONS</div>
+          <div id="posVal" class="stat-val">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;font-size:14px;">KAWALAN ROBOT</div>
+      <div class="controls">
+        <button id="btnStart" class="btn-start-off" onclick="toggleStart()">START: OFF</button>
+        <button id="btnHold" class="btn-hold-off" onclick="toggleHold()">HOLD: OFF</button>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label style="font-size:12px;color:#94a3b8;">Lot Size</label>
+        <input id="lotInput" type="number" step="0.01" min="0.01" value="0.01" />
+        <button class="btn-save" onclick="saveLot()">Simpan Lot</button>
+      </div>
+    </div>
   </div>
 
-  <div style="margin-top:14px;">
-    <label style="font-size:12px;color:#94a3b8;">Lot Size</label>
-    <input id="lotInput" type="number" step="0.01" min="0.01" value="0.01" />
-    <button class="btn-save" onclick="saveLot()">Simpan Lot</button>
-  </div>
-</div>
+  <script>
+    const SUPABASE_URL = "https://hvvpuhyxnuugslflmtou.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dnB1aHl4bnV1Z3NsZmxtdG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU4MDIxNzIsImV4cCI6MjExMTM3ODE3Mn0.8V1Km8SO0liSD5xCTwKUAS75Vqph0WfoIolvFoVD5P4";
+    const ACCOUNT_NO = "10001234";
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let currentState = null;
+
+    function renderUI(row) {
+      currentState = row;
+      document.getElementById("subInfo").innerText = `Akaun: ${row.account_number} (${row.broker_server}) | ${row.symbol}`;
+      document.getElementById("balanceVal").innerText = `$${Number(row.balance).toFixed(2)}`;
+
+      const profit = Number(row.profit_today);
+      const profitEl = document.getElementById("profitVal");
+      profitEl.innerText = `${profit >= 0 ? "+" : ""}$${profit.toFixed(2)}`;
+      profitEl.className = `stat-val ${profit >= 0 ? "profit" : "loss"}`;
+
+      const floating = Number(row.floating_pnl);
+      const floatEl = document.getElementById("floatingVal");
+      floatEl.innerText = `${floating >= 0 ? "+" : ""}$${floating.toFixed(2)}`;
+      floatEl.className = `stat-val ${floating >= 0 ? "profit" : "loss"}`;
+
+      document.getElementById("posVal").innerText = row.open_positions;
+      document.getElementById("lotInput").value = row.lot_size;
+
+      const lastBeat = new Date(row.last_heartbeat).getTime();
+      const isOnline = (Date.now() - lastBeat) < 20000;
+      const badge = document.getElementById("connBadge");
+      badge.innerText = isOnline ? "ONLINE" : "OFFLINE";
+      badge.className = `badge ${isOnline ? "online" : "offline"}`;
+
+      const btnStart = document.getElementById("btnStart");
+      btnStart.innerText = `START: ${row.is_started ? "ON" : "OFF"}`;
+      btnStart.className = row.is_started ? "btn-start-on" : "btn-start-off";
+
+      const btnHold = document.getElementById("btnHold");
+      btnHold.innerText = `HOLD: ${row.is_hold ? "ON" : "OFF"}`;
+      btnHold.className = row.is_hold ? "btn-hold-on" : "btn-hold-off";
+    }
+
+    async function loadData() {
+      const { data, error } = await db
+        .from("bot_accounts")
+        .select("*")
+        .eq("account_number", ACCOUNT_NO)
+        .single();
+      if (!error && data) renderUI(data);
+    }
+
+    async function toggleStart() {
+      if (!currentState) return;
+      const nextVal = !currentState.is_started;
+      const { data } = await db
+        .from("bot_accounts")
+        .update({ is_started: nextVal })
+        .eq("account_number", ACCOUNT_NO)
+        .select()
+        .single();
+      if (data) renderUI(data);
+    }
+
+    async function toggleHold() {
+      if (!currentState) return;
+      const nextVal = !currentState.is_hold;
+      const { data } = await db
+        .from("bot_accounts")
+        .update({ is_hold: nextVal })
+        .eq("account_number", ACCOUNT_NO)
+        .select()
+        .single();
+      if (data) renderUI(data);
+    }
+
+    async function saveLot() {
+      const lot = parseFloat(document.getElementById("lotInput").value);
+      if (isNaN(lot) || lot <= 0) return;
+      const { data } = await db
+        .from("bot_accounts")
+        .update({ lot_size: lot })
+        .eq("account_number", ACCOUNT_NO)
+        .select()
+        .single();
+      if (data) renderUI(data);
+    }
+
+    loadData();
+    setInterval(loadData, 4000);
+  </script>
+</body>
+</html>
